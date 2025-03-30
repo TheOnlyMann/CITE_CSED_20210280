@@ -135,7 +135,7 @@ class MeshSample:
                     slice_path = section.to_planar()[0].to_3D()
                     for entity in slice_path.entities:
                         points = slice_path.vertices[entity.points]
-                        ax.plot(points[:, 0], points[:, 1], points[:, 2], color='orange', alpha=0.8)
+                        ax.plot(points[:, 0], points[:, 1], points[:, 2], color='orange', alpha=0.2)
 
         ax.set_box_aspect(aspect = [1,1,1])
         ax.set_xlabel('X')
