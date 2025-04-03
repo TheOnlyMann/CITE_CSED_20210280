@@ -11,7 +11,7 @@ class MeshSample:
         self.rotated_mesh = None
         self.transformed_mesh = None
         self.sliced_mesh = None
-        self.rotation_matrix = None
+        self.rotation_matrix = None# only used for X, Y rotation as Z rotation does not matter in the terms of slicing, thus z rotation is set to 0 if possible
         self.vertex_function = None# function to be applied to vertices
         self.vertex_inverse_function = None# function to be applied to vertices to get back to original mesh
         self.point_cloud = None
@@ -34,7 +34,44 @@ class MeshSample:
     def get_mesh(self):
         return self.transformed_mesh if self.transformed_mesh is not None else self.rotated_mesh if self.rotated_mesh is not None else self.original_mesh
     
-    def set_rotation(self, rotation_matrix = np.eye(4)):
+    def set_rotation(self, rotation_matrix = None, angles_rad = None, remove_Z_rotation = True):
+        '''
+        Set the rotation matrix for the mesh.
+        Input can be either a 4x4 rotation matrix or a list of angles in radians.
+        The angles are assumed to be in the order of [X, Y, Z] rotation.
+        If remove_Z_rotation is True, the Z rotation will be set to 0.
+        The rotation matrix is applied to the original mesh and the rotated mesh is stored.
+        '''
+
+        if angles_rad is not None:
+            if len(angles_rad) < 2:
+                raise ValueError("At least two angles are required for rotation.")
+            elif len(angles_rad) > 3:
+                raise ValueError("Only maximum of three angles are required for rotation.")
+            elif len(angles_rad) == 2:
+                angles_rad.append(0.0)
+            if remove_Z_rotation:
+                angles_rad[2] = 0.0
+            angle_x, angle_y, angle_z = angles_rad
+            rotation_matrix = trimesh.transformations.euler_matrix(angle_x, angle_y, angle_z, axes='sxyz')
+
+        elif rotation_matrix is not None:
+            # Check if the rotation matrix is valid
+            if not isinstance(rotation_matrix, np.ndarray) or rotation_matrix.shape != (4, 4):
+                raise ValueError("Rotation matrix must be a 4x4 numpy array.")
+            #check if the rotation matrix is orthogonal and determinant is 1
+            R = rotation_matrix[:3, :3]
+            if not np.allclose(np.dot(R, R.T), np.eye(3), atol=1e-6):
+                raise ValueError("Rotation matrix must be orthogonal.")
+            if not np.isclose(np.linalg.det(R), 1.0, atol=1e-6):
+                raise ValueError("Rotation matrix must have determinant 1.")
+            
+            if remove_Z_rotation:
+                angle_x, angle_y, _ = trimesh.transformations.euler_from_matrix(rotation_matrix, axes='sxyz')
+                rotation_matrix = trimesh.transformations.euler_matrix(angle_x, angle_y, 0.0, axes='sxyz')
+
+        else:
+            rotation_matrix = np.eye(4)#default to identity matrix
         self.rotation_matrix = rotation_matrix
         
     def apply_rotation(self, rotation_matrix = None):
