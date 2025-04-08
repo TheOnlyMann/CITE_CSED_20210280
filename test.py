@@ -14,14 +14,9 @@ print(test_stl.metadata)
 datatype = MeshSample(test_stl, "Calibration cube v3")
 datatype.display_basemesh()
 
-angle_deg = 45
-angle_rad = np.radians(angle_deg)
-axis = [0, 1, 0]  # Y-axis
-origin = [0, 0, 0]  # rotate around origin
 
-R = rotation_matrix(angle_rad, axis, origin)
-
-datatype.set_rotation(R)
+datatype.set_rotation(angles_rad = [0, 1, 3])
+datatype.apply_rotation()
 datatype.display_rotation(scale = 0.03)
 
 datatype.apply_rotation()

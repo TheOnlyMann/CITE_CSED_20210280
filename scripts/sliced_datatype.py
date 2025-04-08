@@ -19,6 +19,14 @@ class MeshSample:
         self.evaluation = {}  # stores scores like inclination, stability, etc.
 
     def display_basemesh(self):
+        '''
+        Displays the original mesh in 3D.
+        The mesh is displayed with a cyan color and a black edge.
+        If the mesh is not set, it will print it out and return
+        '''
+        if self.original_mesh is None:
+            print("No mesh set.")
+            return
         mesh = self.original_mesh
         fig = plt.figure(figsize=(10, 10))
         ax = fig.add_subplot(111, projection='3d')
@@ -32,7 +40,19 @@ class MeshSample:
         plt.show()
 
     def get_mesh(self):
-        return self.transformed_mesh if self.transformed_mesh is not None else self.rotated_mesh if self.rotated_mesh is not None else self.original_mesh
+        '''
+        Returns appropriate mesh based on the state of the object.
+        returns by [return mesh], [return type]
+        if no mesh is set, it will return None.
+        '''
+        if self.transformed_mesh is not None:
+            return self.transformed_mesh, "transformed"
+        elif self.rotated_mesh is not None:
+            return self.rotated_mesh, "rotated"
+        elif self.original_mesh is not None:
+            return self.original_mesh, "original"
+        else:
+            return None
     
     def set_rotation(self, rotation_matrix = None, angles_rad = None, remove_Z_rotation = True):
         '''
@@ -44,6 +64,7 @@ class MeshSample:
         '''
 
         if angles_rad is not None:
+            angles_rad = list(angles_rad)# make it local
             if len(angles_rad) < 2:
                 raise ValueError("At least two angles are required for rotation.")
             elif len(angles_rad) > 3:
@@ -74,16 +95,42 @@ class MeshSample:
             rotation_matrix = np.eye(4)#default to identity matrix
         self.rotation_matrix = rotation_matrix
         
-    def apply_rotation(self, rotation_matrix = None):
-        if rotation_matrix is not None:
-            self.set_rotation(rotation_matrix)
+    def apply_rotation(self, rotation_matrix = None, angles_rad = None, remove_Z_rotation = True):
+        '''
+        apply the rotation matrix to the original mesh and store the rotated mesh.
+        If the rotation matrix is not set, it will raise a ValueError.
+        while it is recommended to set the rotation matrix on set_rotation method, you can also set it here.
+        If the rotation matrix is not set, it will raise a ValueError.
+        '''
+        if self.original_mesh is None:
+            raise ValueError("Original mesh not set.")
+        
+        if rotation_matrix is not None or angles_rad is not None:
+            self.set_rotation(rotation_matrix, angles_rad, remove_Z_rotation)
         if self.rotation_matrix is None:
             raise ValueError("Rotation matrix not set.")
         self.rotated_mesh = self.original_mesh.copy()
         self.rotated_mesh.apply_transform(self.rotation_matrix)
 
     def get_rotation(self):
+        '''
+        Returns the rotation matrix.
+        If the rotation matrix is not set, it will return None.
+        '''
+        if self.rotation_matrix is None:
+            return None
         return self.rotation_matrix
+    
+    def get_rotation_angles(self):
+        '''
+        Returns the rotation angles in radians.
+        The angles are in the order of [X, Y, Z] rotation.
+        If the rotation matrix is not set, it will return None.
+        '''
+        if self.rotation_matrix is None:
+            return None
+        angles = trimesh.transformations.euler_from_matrix(self.rotation_matrix, axes='sxyz')
+        return angles
     
     def display_rotation(self, scale=0.10):
         '''        
@@ -93,45 +140,76 @@ class MeshSample:
         The last column is the translation vector.
         The rotation matrix is applied to the original mesh and the axes are displayed.
         The axes are scaled by the scale parameter.
+        also display their X, Y, Z rotation angles in degrees.
         '''
         if self.rotation_matrix is None:
             print("No rotation matrix set.")
             return
 
-        R = self.rotation_matrix[:3, :3]  # Extract 3x3 rotation part
-        origin = np.array([0, 0, 0])
+        # Extract Euler angles
+        angles_rad = trimesh.transformations.euler_from_matrix(self.rotation_matrix, axes='sxyz')
+        angles_deg = np.degrees(angles_rad)
 
         fig = plt.figure(figsize=(10, 10))
         ax = fig.add_subplot(111, projection='3d')
-        # Draw original axes
-        ax.quiver(*origin, scale, 0, 0, color='r', linestyle='dashed', label='X original')
-        ax.quiver(*origin, 0, scale, 0, color='g', linestyle='dashed', label='Y original')
-        ax.quiver(*origin, 0, 0, scale, color='b', linestyle='dashed', label='Z original')
-        # Draw transformed axes
-        ax.quiver(*origin, *R[:, 0] * scale, color='r', label='X transformed')
-        ax.quiver(*origin, *R[:, 1] * scale, color='g', label='Y transformed')
-        ax.quiver(*origin, *R[:, 2] * scale, color='b', label='Z transformed')
 
-        ax.set_box_aspect(aspect = [1,1,1])
+        origin = np.array([0, 0, 0])
+
+        # Original axes (dashed)
+        ax.quiver(*origin, scale, 0, 0, color='gray', linestyle='dashed', alpha=0.5)
+        ax.quiver(*origin, 0, scale, 0, color='gray', linestyle='dashed', alpha=0.5)
+        ax.quiver(*origin, 0, 0, scale, color='gray', linestyle='dashed', alpha=0.5)
+
+        # Transformed axes
+        R = self.rotation_matrix[:3, :3]
+        ax.quiver(*origin, *(R[:, 0] * scale), color='r', label='X rotated')
+        ax.quiver(*origin, *(R[:, 1] * scale), color='g', label='Y rotated')
+        ax.quiver(*origin, *(R[:, 2] * scale), color='b', label='Z rotated')
+
+        # Set plot annotations (angles)
+        angle_text = (f"Rotation angles:\n"
+                    f"X: {angles_rad[0]:.2f} rad ({angles_deg[0]:.1f}°)\n"
+                    f"Y: {angles_rad[1]:.2f} rad ({angles_deg[1]:.1f}°)\n"
+                    f"Z: {angles_rad[2]:.2f} rad ({angles_deg[2]:.1f}°)")
+        
+        # Place text box in plot
+        ax.text2D(0.05, 0.95, angle_text, transform=ax.transAxes,
+                fontsize=12, bbox=dict(boxstyle="round,pad=0.3", facecolor="white", alpha=0.7))
+
+        # Axis labels
         ax.set_xlabel('X')
         ax.set_ylabel('Y')
         ax.set_zlabel('Z')
-        ax.set_title(f"Rotation Axes for {self.name}")
+
+        ax.set_title(f"Rotation Visualization: {self.name}")
+        ax.set_box_aspect([1, 1, 1])
         ax.legend()
+        plt.tight_layout()
         plt.show()
 
+
     def set_vertex_function(self, function, inverse_function):
+        '''set the vertex function and inverse function for the mesh.
+        The function is just a linear z transformation, but it can be any function that takes a 3D point and returns a 3D point.
+        The inverse function is used to get back to the original mesh.
+        The function and inverse function should be of the form f(x,y,z) = (x',y',z') where (x,y,z) is the original point and (x',y',z') is the transformed point.
+        '''
         self.vertex_function = function
         self.vertex_inverse_function = inverse_function
     
     def apply_vertex_function(self,function = None, inverse_function = None):
+        '''
+        apply the vertex function to the mesh.
+        The function should be of the form f(x,y,z) = (x',y',z') where (x,y,z) is the original point and (x',y',z') is the transformed point.
+        The inverse function is used to get back to the original mesh.
+        '''
         if function is not None:
             self.set_vertex_function(function)
         if self.vertex_function is None:
             raise ValueError("Vertex function not set.")
-        base_mesh = self.original_mesh.copy()
-        if self.rotated_mesh is not None:
-            base_mesh = self.rotated_mesh.copy()
+        if self.rotated_mesh is None:
+            raise ValueError("Rotated mesh not set.")
+        base_mesh = self.rotated_mesh.copy()
         base_mesh.vertices = self.vertex_function(base_mesh.vertices)
         self.transformed_mesh = base_mesh
 
