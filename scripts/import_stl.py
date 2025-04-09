@@ -4,9 +4,10 @@ import os
 import sys
 import matplotlib.pyplot as plt
 from mpl_toolkits.mplot3d.art3d import Poly3DCollection
+import prusa_slicer as ps
 
 # Function to import a mesh from a file
-def import_stl(file_path):
+def import_stl(file_path, fix_stl = False):
     #check if it does not have .stl extension and if not add it
     if not file_path.endswith(".stl"):
         file_path += ".stl"
@@ -17,6 +18,10 @@ def import_stl(file_path):
     if not os.path.exists(file_path):
         raise FileNotFoundError(f"File not found: {file_path}")
     print(f"✅ STL loaded from: {file_path}")
+    if fix_stl:
+        #repair the stl file using prusa slicer
+        ps.repairSTL(file_path)
+        print("✅ STL repaired")
     return trimesh.load(file_path)#load the mesh using trimesh
 
 # Function to plot a mesh along with information, deprecated

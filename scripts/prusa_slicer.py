@@ -1,10 +1,14 @@
 import subprocess
 
+SLICER_PATH = "C:\Program Files\Prusa3D\PrusaSliceaZr"
+DEFAULT_PROFILE = "..\data\slicer\profiles\ender3_se.ini"
+DEFAULT_PARAMS = ""
+
 # Slices a given STL-File planar in prusa slicer
 # ----------------------------------------
 # Input: target: STL-File path (string), profile: INI-File path (string), userParameters: additional paramters (string)
 # Output: None
-def sliceSTL(target, profile, userParameters, userPath="C:\Program Files\Prusa3D\PrusaSlicer"):
+def sliceSTL(target, profile=DEFAULT_PROFILE, userParameters = DEFAULT_PARAMS, userPath=SLICER_PATH):
     filename = "output.gcode"
     prusa_slicer_path = fr'"{userPath}\prusa-slicer-console.exe"'
     command = f'{prusa_slicer_path} --export-gcode {target} --output {filename} --load {profile} {userParameters}'
@@ -25,7 +29,7 @@ def repairSTL(target):
 # ----------------------------------------
 # Input: target: GCode-File path (string)
 # Output: None
-def viewGCODE(target, userPath="C:\Program Files\Prusa3D\PrusaSlicer"):
+def viewGCODE(target, userPath=SLICER_PATH):
     prusa_path = fr'"{userPath}\prusa-gcodeviewer.exe"'
     command = f"{prusa_path} {target}"
     print(command)

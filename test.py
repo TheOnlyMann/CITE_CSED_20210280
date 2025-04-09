@@ -1,6 +1,7 @@
 from scripts.import_stl import import_stl
 from scripts.import_stl import mesh_plot_info
 from scripts.sliced_datatype import MeshSample
+import scripts.prusa_slicer
 
 import trimesh
 import matplotlib.pyplot as plt

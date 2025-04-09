@@ -17,6 +17,7 @@ class MeshSample:
         self.point_cloud = None
         self.slices = []  # list of sliced sections
         self.evaluation = {}  # stores scores like inclination, stability, etc.
+        self.gcode = None  # stores gcode for the mesh
 
     def display_basemesh(self):
         '''
