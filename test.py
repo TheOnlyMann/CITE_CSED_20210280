@@ -1,7 +1,6 @@
 from scripts.import_stl import import_stl
-from scripts.import_stl import mesh_plot_info
 from scripts.sliced_datatype import MeshSample
-import scripts.prusa_slicer
+import scripts.prusa_slicer as ps
 
 import trimesh
 import matplotlib.pyplot as plt
@@ -16,10 +15,16 @@ datatype = MeshSample(test_stl, "Calibration cube v3")
 datatype.display_basemesh()
 
 
-datatype.set_rotation(angles_rad = [0, 1, 3])
+datatype.set_rotation(angles_rad = [1, 0, 3])
 datatype.apply_rotation()
 datatype.display_rotation(scale = 0.03)
 
 datatype.apply_rotation()
 datatype.slice_mesh(0.2)
 datatype.display_transformed()
+
+#temp save STL
+datatype.save_stl("test_rotation.stl")
+ps.sliceSTL("test_rotation.stl")
+ps.viewGCODE("output.gcode")
+

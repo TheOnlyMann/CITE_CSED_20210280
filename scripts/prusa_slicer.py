@@ -1,7 +1,9 @@
 import subprocess
+import os
 
-SLICER_PATH = "C:\Program Files\Prusa3D\PrusaSliceaZr"
-DEFAULT_PROFILE = "..\data\slicer\profiles\ender3_se.ini"
+SLICER_PATH = "C:\Program Files\Prusa3D\PrusaSlicer"
+project_dir = os.path.dirname(os.path.abspath(__file__))
+DEFAULT_PROFILE = os.path.join(project_dir,"..\data\slicer\profiles\ender3_se.ini")
 DEFAULT_PARAMS = ""
 
 # Slices a given STL-File planar in prusa slicer

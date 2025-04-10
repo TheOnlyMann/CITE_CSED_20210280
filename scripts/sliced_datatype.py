@@ -47,11 +47,26 @@ class MeshSample:
         if no mesh is set, it will return None.
         '''
         if self.transformed_mesh is not None:
-            return self.transformed_mesh, "transformed"
+            return self.transformed_mesh
         elif self.rotated_mesh is not None:
-            return self.rotated_mesh, "rotated"
+            return self.rotated_mesh
         elif self.original_mesh is not None:
-            return self.original_mesh, "original"
+            return self.original_mesh
+        else:
+            return None
+    
+    def get_mesh_type(self):
+        '''
+        Returns the type of mesh based on the state of the object.
+        returns by [return mesh], [return type]
+        if no mesh is set, it will return None.
+        '''
+        if self.transformed_mesh is not None:
+            return 'transformed'
+        elif self.rotated_mesh is not None:
+            return 'rotated'
+        elif self.original_mesh is not None:
+            return 'original'
         else:
             return None
     
@@ -272,6 +287,40 @@ class MeshSample:
             self.point_cloud_from_mesh()
         return self.point_cloud
 
+    def save_stl(self, filename):
+        '''
+        Save the mesh to a file.
+        If the mesh is not set, it will raise a ValueError.
+        '''
+        mesh = self.get_mesh()
+        if mesh is None:
+            raise ValueError("No mesh set.")
+        # Save the mesh to a file
+        mesh.export(filename)
+        print(f"Mesh saved to {filename}")
+
+    def evaluate(self, evaluation_function):
+        '''
+        Evaluate the mesh using the given evaluation function.
+        The evaluation function should take a mesh and return a score.
+        The score is stored in the evaluation attribute of the object.
+        '''
+        if self.transformed_mesh is None:
+            raise ValueError("Transformed mesh not set.")
+        if evaluation_function is None:
+            raise ValueError("Evaluation function not set.")
+        self.evaluation = evaluation_function(self.transformed_mesh)
+        return self.evaluation
+    
+    def get_evaluation(self):
+        '''
+        Returns the evaluation score.
+        If the evaluation score is not set, it will return None.
+        '''
+        if self.evaluation is None:
+            return None
+        return self.evaluation
+    
 
     def __repr__(self):
         return (
