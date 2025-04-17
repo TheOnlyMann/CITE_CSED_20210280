@@ -3,19 +3,22 @@ import numpy as np
 import matplotlib.pyplot as plt
 from mpl_toolkits.mplot3d.art3d import Poly3DCollection
 from mpl_toolkits.mplot3d import Axes3D
+from trimesh.geometry import align_vectors
+
+
 
 class MeshSample:
     def __init__(self, original_mesh: trimesh.Trimesh, name: str = "unnamed"):
         self.name = name
         self.original_mesh = original_mesh
         self.rotated_mesh = None
-        self.transformed_mesh = None
-        self.sliced_mesh = None
         self.rotation_matrix = None# only used for X, Y rotation as Z rotation does not matter in the terms of slicing, thus z rotation is set to 0 if possible
         self.vertex_function = None# function to be applied to vertices
         self.vertex_inverse_function = None# function to be applied to vertices to get back to original mesh
+        self.transformed_mesh = None# mesh after applying the vertex function
+        self.base_faces = None# base faces are excluded from the evaluation function for walls
         self.point_cloud = None
-        self.slices = []  # list of sliced sections
+        
         self.evaluation = {}  # stores scores like inclination, stability, etc.
         self.gcode = None  # stores gcode for the mesh
 
@@ -111,7 +114,7 @@ class MeshSample:
             rotation_matrix = np.eye(4)#default to identity matrix
         self.rotation_matrix = rotation_matrix
         
-    def apply_rotation(self, rotation_matrix = None, angles_rad = None, remove_Z_rotation = True):
+    def apply_rotation(self):
         '''
         apply the rotation matrix to the original mesh and store the rotated mesh.
         If the rotation matrix is not set, it will raise a ValueError.
@@ -120,13 +123,36 @@ class MeshSample:
         '''
         if self.original_mesh is None:
             raise ValueError("Original mesh not set.")
-        
-        if rotation_matrix is not None or angles_rad is not None:
-            self.set_rotation(rotation_matrix, angles_rad, remove_Z_rotation)
         if self.rotation_matrix is None:
             raise ValueError("Rotation matrix not set.")
         self.rotated_mesh = self.original_mesh.copy()
         self.rotated_mesh.apply_transform(self.rotation_matrix)
+
+    def set_rotation_by_base(self, base, remove_Z_rotation = True):
+        '''
+        Set the rotation matrix based on the selected face within the stl.
+        The face selected as the base will be rotated to the XY plane, making the Z axis normal to the face.
+        The rotation matrix is applied to the original mesh and the rotated mesh is stored.
+        '''
+        if not isinstance(base, int) or base >= len(self.original_mesh.faces):
+            raise ValueError("Base must be a valid face index.")
+
+        # Get normal of the selected face
+        face_normal = self.original_mesh.face_normals[base]
+
+        # Desired normal (Z-axis)
+        target_normal = [0, 0, 1]
+
+        # Compute rotation matrix to align face_normal with Z-axis
+        rotation_matrix = align_vectors(face_normal, target_normal)
+
+        # Make it 4x4 homogeneous
+        transform = trimesh.transformations.identity_matrix()
+        transform[:3, :3] = rotation_matrix
+
+        # Save
+        self.rotation_matrix = self.set_rotation(rotation_matrix=transform, remove_Z_rotation=remove_Z_rotation)
+        
 
     def get_rotation(self):
         '''
@@ -228,53 +254,6 @@ class MeshSample:
         base_mesh = self.rotated_mesh.copy()
         base_mesh.vertices = self.vertex_function(base_mesh.vertices)
         self.transformed_mesh = base_mesh
-
-    
-    def slice_mesh(self, step = 0.2, z_start=None, z_end=None):
-        mesh = self.get_mesh().copy()
-        if z_start is None:
-            z_start = mesh.bounds[0][2]
-        if z_end is None:
-            z_end = mesh.bounds[1][2]
-        slices = []
-        for z in np.arange(z_start, z_end, step):
-            slice_mesh = mesh.section(plane_origin=[0, 0, z], plane_normal=[0, 0, 1])
-            if slice_mesh is not None:            
-                slices.append({
-                    'z': z,
-                    'origin': [0, 0, z],
-                    'normal': [0, 0, 1],
-                    'section': slice_mesh
-                })
-        self.slices = slices
-        return slices
-
-
-    def display_transformed(self):
-        mesh = self.get_mesh().copy()
-        fig = plt.figure(figsize=(10, 10))
-        ax = fig.add_subplot(111, projection='3d')
-        mesh_faces = mesh.vertices[mesh.faces]
-
-        ax.add_collection3d(Poly3DCollection(mesh_faces, facecolors='cyan', linewidths=0.01, edgecolors='k', alpha=.05))
-        #draw slices
-        if self.slices is not None:
-            for slice_info in self.slices:
-                section = slice_info.get("section")
-                if section is not None:
-                    # Convert section to a Path3D if needed
-                    slice_path = section.to_planar()[0].to_3D()
-                    for entity in slice_path.entities:
-                        points = slice_path.vertices[entity.points]
-                        ax.plot(points[:, 0], points[:, 1], points[:, 2], color='orange', alpha=0.2)
-
-        ax.set_box_aspect(aspect = [1,1,1])
-        ax.set_xlabel('X')
-        ax.set_ylabel('Y')
-        ax.set_zlabel('Z')
-        ax.set_title(f"Transformed Mesh for {self.name}")
-        plt.show()
-    
 
     def point_cloud_from_mesh(self, n_points=2000, seed=42):
         mesh = self.get_mesh().copy()

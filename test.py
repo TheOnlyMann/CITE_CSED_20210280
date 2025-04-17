@@ -20,8 +20,8 @@ datatype.apply_rotation()
 datatype.display_rotation(scale = 0.03)
 
 datatype.apply_rotation()
-datatype.slice_mesh(0.2)
-datatype.display_transformed()
+#datatype.slice_mesh(0.2)
+#datatype.display_transformed()
 
 #temp save STL
 datatype.save_stl("test_rotation.stl")
