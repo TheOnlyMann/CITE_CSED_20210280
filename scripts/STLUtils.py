@@ -244,68 +244,45 @@ def paths_to_polygons(paths, area_threshold=1e-6):
             continue
     return polygons
 
-def transform_polyline_world(polyline_2d: np.ndarray, section: trimesh.path.Path3D) -> np.ndarray:
-    """
-    2D polyline을 3D 월드 좌표로 변환.
-    """
-    if polyline_2d.shape[1] == 2:
-        z_value = section.plane_origin[2]
-        polyline_3d = np.hstack((polyline_2d, np.full((len(polyline_2d), 1), z_value)))
-    else:
-        polyline_3d = polyline_2d
-
-    polyline_3d_world = trimesh.transformations.transform_points(polyline_3d, section.to_world)
-    return polyline_3d_world
-
-def evalSTL_island(mesh: trimesh.Trimesh, layer_height: float = 0.2, verbose: bool = False):
-    """
-    Detect unsupported island polylines.
-    폴리라인 3D 좌표계를 STL과 일치시켜 저장.
-
-    Returns:
-        List[Dict]: [{'z': z, 'islands': [np.ndarray(N, 3)]}]
-    """
+def evalSTL_island(mesh: trimesh.Trimesh, layer_height=0.2, distance_threshold=0.6, verbose=False):
     z_min, z_max = mesh.bounds[0][2], mesh.bounds[1][2]
     n_layers = int((z_max - z_min) / layer_height) + 1
 
-    prev_polylines = []
+    prev_points = None
     island_info = []
 
     for layer in range(n_layers):
         z = z_min + layer * layer_height
         section = mesh.section(plane_origin=[0, 0, z], plane_normal=[0, 0, 1])
-
         if section is None:
             continue
 
         try:
-            paths = section.to_2D()[0]  # local 2D paths
-            polylines = []
-            for entity in paths.entities:
-                points = paths.vertices[entity.points]
-                if len(points) >= 2:
-                    world_polyline = transform_polyline_world(points, section)
-                    polylines.append(world_polyline)
+            paths = section.to_planar()[0]
         except Exception:
             continue
 
-        if layer == 0:
-            prev_polylines = polylines
+        polys = []
+        for entity in paths.entities:
+            pts = paths.vertices[entity.points]
+            if len(pts) >= 2:
+                polys.append(pts)
+
+        # First layer, nothing to compare yet
+        if prev_points is None:
+            prev_points = np.vstack(polys) if polys else np.zeros((0,2))
             continue
 
+        # Check unsupported
         unsupported = []
-        for poly in polylines:
-            # 중심점으로 비교 (빠른 검사)
-            centroid = np.mean(poly[:, :2], axis=0)
-            supported = False
-            for prev in prev_polylines:
-                prev_centroid = np.mean(prev[:, :2], axis=0)
-                dist = np.linalg.norm(centroid - prev_centroid)
-                if dist < 1.0:  # 1mm 이내 겹치면 OK
-                    supported = True
-                    break
-            if not supported:
-                unsupported.append(poly)
+        for poly_pts in polys:
+            if len(prev_points) == 0:
+                unsupported.append(poly_pts)
+                continue
+            dists = np.linalg.norm(poly_pts[:, None, :] - prev_points[None, :, :], axis=-1)
+            min_dist = np.min(dists)
+            if min_dist > distance_threshold:
+                unsupported.append(poly_pts)
 
         if unsupported:
             island_info.append({
@@ -313,11 +290,12 @@ def evalSTL_island(mesh: trimesh.Trimesh, layer_height: float = 0.2, verbose: bo
                 "islands": unsupported
             })
 
-        prev_polylines = polylines
+        prev_points = np.vstack(polys) if polys else prev_points
 
     if verbose:
-        print(f"📏 Detected islands in {len(island_info)} layers.")
+        print(f"📏 Detected islands in {len(island_info)} layers (Polyline-based).")
     return island_info
+
 
 
 def evalSTL(stl: STLBase, area_threshold=1e-4, tolerance=1e-5, layer_height=0.2, verbose: bool = False):
