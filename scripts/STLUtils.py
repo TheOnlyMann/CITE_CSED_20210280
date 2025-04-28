@@ -8,6 +8,7 @@ from STLBase import STLBase
 import open3d as o3d
 from shapely.geometry import Polygon
 from shapely.ops import unary_union
+import matplotlib.cm as cm
 
 def fixSTL(stl: STLBase, verbose: bool = False):
     """
@@ -321,25 +322,69 @@ def evalSTL(stl: STLBase, area_threshold=1e-4, tolerance=1e-5, layer_height=0.2,
     cost = 0.0
     cost = np.sum(stl.face_tag['cost'] * stl.mesh.area_faces)
     print (f"Total cost: {cost:.4f}")
+    return base_area, base_faces, wall_area, penalty_value, center_of_mass, island_info, cost
 
-def displayeval(stl: STLBase, title: str = ""):
+
+def displayeval(stl: STLBase, eval_result, title: str = ""):
     """
-    Displays the original mesh in 3D.
-    The mesh is displayed with a cyan color and a black edge.
-    If the mesh is not set, it will print it out and return
+    Displays:
+    - STL Mesh with face colors (base: light blue, wall: green->red by penalty)
+    - Center of Mass (red dot)
+    - Island polygons (orange loops)
     """
     mesh = stl.get_copy()
+    base_area, base_faces, wall_area, penalty_value, center_of_mass, island_info, total_cost = eval_result
+
     if title == "":
         title = stl.filename
-    fig = plt.figure(figsize=(10, 10))
+
+    fig = plt.figure(figsize=(12, 10))
     ax = fig.add_subplot(111, projection='3d')
     mesh_faces = mesh.vertices[mesh.faces]
-    ax.add_collection3d(Poly3DCollection(mesh_faces, facecolors='cyan', linewidths=0.5, edgecolors='k', alpha=.25))
+
+    face_colors = []
+
+    # normalize penalty for wall faces
+    penalty_min = 0
+    penalty_max = 1  # adjust if needed
+
+    for i in range(len(mesh.faces)):
+        if i in base_faces:
+            face_colors.append((0.5, 0.8, 1.0, 1.0))  # light blue RGBA
+        else:
+            cost = stl.face_tag['cost'][i]
+            norm_cost = (cost - penalty_min) / (penalty_max - penalty_min)
+            norm_cost = np.clip(norm_cost, 0, 1)
+            color = cm.get_cmap('RdYlGn_r')(norm_cost)  # green(low) -> red(high)
+            face_colors.append(color)
+
+    # STL Mesh
+    ax.add_collection3d(
+        Poly3DCollection(mesh_faces, facecolors=face_colors, linewidths=0.5, edgecolors='k', alpha=0.5)
+    )
+
+    # Center of Mass (빨간 점)
+    com = center_of_mass
+    ax.scatter(com[0], com[1], com[2], color='red', s=100, label='Center of Mass')
+
+    # Islands (보라색 고리)
+    for layer in island_info:
+        z = layer["z"]
+        polygons = layer["islands"]
+        for poly in polygons:
+            if not poly.is_empty and isinstance(poly, Polygon):
+                exterior = np.array(poly.exterior.coords)
+                if len(exterior) > 0:
+                    exterior_3d = np.column_stack((exterior, np.full(len(exterior), z)))
+                    ax.plot(exterior_3d[:, 0], exterior_3d[:, 1], exterior_3d[:, 2], color='purple', linewidth=2)
+
+    # Plot Settings
     ax.set_box_aspect(aspect=[1, 1, 1])
     ax.set_xlabel('X')
     ax.set_ylabel('Y')
     ax.set_zlabel('Z')
-    ax.set_title(title)
+    ax.set_title(f"{title} Cost: {total_cost:.4f}")
+    ax.legend()
     plt.show()
 
 
@@ -365,4 +410,5 @@ if __name__ == "__main__":
         for island in info['islands']:
             print(f"  Island Area: {island.area:.4f}")
 
-    evalSTL(stl, area_threshold=1e-4, tolerance=1e-5, layer_height=0.2, verbose=False)
+    eval_result = evalSTL(stl, area_threshold=1e-4, tolerance=1e-5, layer_height=0.2, verbose=False)
+    displayeval(stl, eval_result, title="Evaluation Result")
