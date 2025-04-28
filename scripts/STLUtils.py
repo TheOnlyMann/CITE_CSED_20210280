@@ -3,8 +3,8 @@ import numpy as np
 import os
 import matplotlib.pyplot as plt
 from mpl_toolkits.mplot3d.art3d import Poly3DCollection
-from import_stl import import_stl
-from STLBase import STLBase
+from scripts.import_stl import import_stl
+from scripts.STLBase import STLBase
 import open3d as o3d
 from shapely.geometry import Polygon
 from shapely.ops import unary_union
@@ -149,7 +149,7 @@ def evalSTL_base(stl:STLBase, area_threshold=1e-4, tolerance=1e-5,base_cost_fact
     if base_area < area_threshold:
         if verbose:
             print("❌ Base area too small.")
-        return -1.0
+        return -1.0, []
     if verbose:
         print(f"✅ Base area valid: {base_area:.6f}")
     return base_area,base_faces
@@ -244,45 +244,67 @@ def paths_to_polygons(paths, area_threshold=1e-6):
             continue
     return polygons
 
+def transform_polyline_world(polyline_2d: np.ndarray, section: trimesh.path.Path3D) -> np.ndarray:
+    """
+    2D polyline을 3D 월드 좌표로 변환.
+    """
+    if polyline_2d.shape[1] == 2:
+        z_value = section.plane_origin[2]
+        polyline_3d = np.hstack((polyline_2d, np.full((len(polyline_2d), 1), z_value)))
+    else:
+        polyline_3d = polyline_2d
+
+    polyline_3d_world = trimesh.transformations.transform_points(polyline_3d, section.to_world)
+    return polyline_3d_world
+
 def evalSTL_island(mesh: trimesh.Trimesh, layer_height: float = 0.2, verbose: bool = False):
     """
-    Detect unsupported island polygons at each layer based on overlap with previous layer.
-    Returns a list of dictionaries: {'z': height, 'islands': [Polygon, ...]}.
-
-    Parameters:
-        mesh (trimesh.Trimesh): The mesh to analyze.
-        layer_height (float): Z interval per slice.
-        verbose (bool): Print summary if True.
+    Detect unsupported island polylines.
+    폴리라인 3D 좌표계를 STL과 일치시켜 저장.
 
     Returns:
-        List[Dict]: List of {z, islands}, each containing unsupported island polygons per layer.
+        List[Dict]: [{'z': z, 'islands': [np.ndarray(N, 3)]}]
     """
     z_min, z_max = mesh.bounds[0][2], mesh.bounds[1][2]
     n_layers = int((z_max - z_min) / layer_height) + 1
 
-    prev_polys = []
+    prev_polylines = []
     island_info = []
 
     for layer in range(n_layers):
         z = z_min + layer * layer_height
         section = mesh.section(plane_origin=[0, 0, z], plane_normal=[0, 0, 1])
+
         if section is None:
             continue
 
         try:
-            paths = section.to_2D()[0]
+            paths = section.to_2D()[0]  # local 2D paths
+            polylines = []
+            for entity in paths.entities:
+                points = paths.vertices[entity.points]
+                if len(points) >= 2:
+                    world_polyline = transform_polyline_world(points, section)
+                    polylines.append(world_polyline)
         except Exception:
             continue
 
-        polys = paths_to_polygons(paths)
-
         if layer == 0:
-            prev_polys = polys
+            prev_polylines = polylines
             continue
 
         unsupported = []
-        for poly in polys:
-            if not any(poly.intersects(p) for p in prev_polys):
+        for poly in polylines:
+            # 중심점으로 비교 (빠른 검사)
+            centroid = np.mean(poly[:, :2], axis=0)
+            supported = False
+            for prev in prev_polylines:
+                prev_centroid = np.mean(prev[:, :2], axis=0)
+                dist = np.linalg.norm(centroid - prev_centroid)
+                if dist < 1.0:  # 1mm 이내 겹치면 OK
+                    supported = True
+                    break
+            if not supported:
                 unsupported.append(poly)
 
         if unsupported:
@@ -291,7 +313,7 @@ def evalSTL_island(mesh: trimesh.Trimesh, layer_height: float = 0.2, verbose: bo
                 "islands": unsupported
             })
 
-        prev_polys = polys
+        prev_polylines = polylines
 
     if verbose:
         print(f"📏 Detected islands in {len(island_info)} layers.")
@@ -326,89 +348,45 @@ def evalSTL(stl: STLBase, area_threshold=1e-4, tolerance=1e-5, layer_height=0.2,
 
 
 def displayeval(stl: STLBase, eval_result, title: str = ""):
-    """
-    Displays:
-    - STL Mesh with face colors (base: light blue, wall: green->red by penalty)
-    - Center of Mass (red dot)
-    - Island polygons (orange loops)
-    """
     mesh = stl.get_copy()
     base_area, base_faces, wall_area, penalty_value, center_of_mass, island_info, total_cost = eval_result
-
-    if title == "":
-        title = stl.filename
 
     fig = plt.figure(figsize=(12, 10))
     ax = fig.add_subplot(111, projection='3d')
     mesh_faces = mesh.vertices[mesh.faces]
 
+    # Face color
     face_colors = []
-
-    # normalize penalty for wall faces
-    penalty_min = 0
-    penalty_max = 1  # adjust if needed
-
     for i in range(len(mesh.faces)):
         if i in base_faces:
-            face_colors.append((0.5, 0.8, 1.0, 1.0))  # light blue RGBA
+            face_colors.append((0.5, 0.8, 1.0, 1.0))  # light blue
         else:
             cost = stl.face_tag['cost'][i]
-            norm_cost = (cost - penalty_min) / (penalty_max - penalty_min)
-            norm_cost = np.clip(norm_cost, 0, 1)
-            color = cm.get_cmap('RdYlGn_r')(norm_cost)  # green(low) -> red(high)
+            norm_cost = np.clip(cost, 0, 1)
+            color = cm.get_cmap('RdYlGn_r')(norm_cost)
             face_colors.append(color)
 
-    # STL Mesh
-    ax.add_collection3d(
-        Poly3DCollection(mesh_faces, facecolors=face_colors, linewidths=0.5, edgecolors='k', alpha=0.5)
-    )
+    ax.add_collection3d(Poly3DCollection(mesh_faces, facecolors=face_colors, linewidths=0.2, edgecolors='k', alpha=0.5))
 
-    # Center of Mass (빨간 점)
+    # Center of Mass
     com = center_of_mass
     ax.scatter(com[0], com[1], com[2], color='red', s=100, label='Center of Mass')
 
-    # Islands (보라색 고리)
+    # Islands
     for layer in island_info:
         z = layer["z"]
-        polygons = layer["islands"]
-        for poly in polygons:
-            if not poly.is_empty and isinstance(poly, Polygon):
-                exterior = np.array(poly.exterior.coords)
-                if len(exterior) > 0:
-                    exterior_3d = np.column_stack((exterior, np.full(len(exterior), z)))
-                    ax.plot(exterior_3d[:, 0], exterior_3d[:, 1], exterior_3d[:, 2], color='purple', linewidth=2)
+        islands = layer["islands"]
+        for poly_pts in islands:
+            if len(poly_pts) > 0:
+                isl3d = np.column_stack((poly_pts, np.full(len(poly_pts), z)))
+                ax.plot(isl3d[:, 0], isl3d[:, 1], isl3d[:, 2], color='purple', linewidth=2)
 
-    # Plot Settings
-    ax.set_box_aspect(aspect=[1, 1, 1])
+    ax.set_box_aspect([1, 1, 1])
     ax.set_xlabel('X')
     ax.set_ylabel('Y')
     ax.set_zlabel('Z')
-    ax.set_title(f"{title} Cost: {total_cost:.4f}")
+    ax.axis('equal')
+    ax.set_title(f"{title} | Total Cost: {total_cost:.4f}")
     ax.legend()
     plt.show()
 
-
-if __name__ == "__main__":
-    # Example usage
-    stl = STLBase("example.stl")
-    stl.load("Calibration cube v3.stl")
-    stl.display("Original Mesh")
-    fixSTL(stl, verbose=True)
-    stl.display("Fixed Mesh")
-    enhanceSTL_via_open3d(stl, voxel_factor=200.0, verbose=True)
-    stl.display("Enhanced Mesh")
-    evalSTL_initface(stl, override=True, verbose=True)
-    evalSTL_base(stl, area_threshold=1e-4, tolerance=1e-5, verbose=True)
-
-    evalSTL_wall(stl, anglecheck_function=costcalc, verbose=True)
-
-    evalSTL_center_of_mass(stl, verbose=True)
-
-    island_info = evalSTL_island(stl.get(), layer_height=0.2, verbose=True)
-    for info in island_info:
-        print(f"Layer Z: {info['z']}, Islands: {len(info['islands'])}")
-        for island in info['islands']:
-            print(f"  Island Area: {island.area:.4f}")
-
-    eval_result = evalSTL(stl, area_threshold=1e-4, tolerance=1e-5, layer_height=0.2, verbose=False)
-    displayeval(stl, eval_result, title="Evaluation Result")
