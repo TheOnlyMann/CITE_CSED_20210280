@@ -1,30 +1,33 @@
-from scripts.import_stl import import_stl
-from scripts.sliced_datatype import MeshSample
-import scripts.prusa_slicer as ps
+from scripts.STLBase import STLBase
+from scripts.STLRotater import STLRotater
+from scripts.STLUtils import fixSTL, enhanceSTL_via_open3d, evalSTL_initface, evalSTL_base, evalSTL_wall, costcalc, evalSTL_center_of_mass, evalSTL_island, evalSTL, displayeval
 
-import trimesh
-import matplotlib.pyplot as plt
-import numpy as np
-from trimesh.transformations import rotation_matrix
+import math
 
-test_stl = import_stl("Calibration cube v3")
-print(test_stl.metadata)
-#mesh_plot_info(test_stl)
+basemesh = STLBase("test.stl")
+basemesh.load("Calibration cube v3.stl")
+basemesh.display("Original mesh")
 
-datatype = MeshSample(test_stl, "Calibration cube v3")
-datatype.display_basemesh()
+rotater = STLRotater("rotated.stl", mesh=basemesh.get_copy())
+rotater.set_rotation(rotation_angles=[math.radians(90), 0, 0], limit_z_rotation=False)
+rotater.apply_rotation()
+rotater.display("Rotated mesh")
+
+stl = rotater.transfer()
+
+fixSTL(stl, verbose=True)
+stl.display("Fixed Mesh")
+enhanceSTL_via_open3d(stl, voxel_factor=200.0, verbose=True)
+stl.display("Enhanced Mesh")
+evalSTL_initface(stl, override=True, verbose=True)
+evalSTL_base(stl, area_threshold=1e-4, tolerance=1e-5, verbose=True)
+
+evalSTL_wall(stl, anglecheck_function=costcalc, verbose=True)
+
+evalSTL_center_of_mass(stl, verbose=True)
+
+island_info = evalSTL_island(stl.get(), layer_height=0.2, verbose=True)
 
 
-datatype.set_rotation(angles_rad = [1, 0, 3])
-datatype.apply_rotation()
-datatype.display_rotation(scale = 0.03)
-
-datatype.apply_rotation()
-#datatype.slice_mesh(0.2)
-#datatype.display_transformed()
-
-#temp save STL
-datatype.save_stl("test_rotation.stl")
-ps.sliceSTL("test_rotation.stl")
-ps.viewGCODE("output.gcode")
-
+eval_result = evalSTL(stl, area_threshold=1e-4, tolerance=1e-5, layer_height=0.2, verbose=False)
+displayeval(stl, eval_result, title="Evaluation Result")
