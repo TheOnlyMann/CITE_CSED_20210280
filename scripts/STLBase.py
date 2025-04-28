@@ -3,7 +3,7 @@ import numpy as np
 import os
 import matplotlib.pyplot as plt
 from mpl_toolkits.mplot3d.art3d import Poly3DCollection
-from import_stl import import_stl
+from scripts.import_stl import import_stl
 
 class STLBase:
     def __init__(self, filename: str, mesh: trimesh.Trimesh = None, **kwargs):
@@ -29,6 +29,9 @@ class STLBase:
     def get_copy(self):
         self._check()
         return self.mesh.copy()
+    def transfer(self):
+        result = STLBase(self.filename, mesh=self.mesh.copy())
+        return result
     
     def save(self, filename: str = None):
         self._check()
@@ -61,6 +64,7 @@ class STLBase:
         ax.set_xlabel('X')
         ax.set_ylabel('Y')
         ax.set_zlabel('Z')
+        ax.axis('equal')
         ax.set_title(title)
         plt.show()
         

@@ -3,8 +3,8 @@ import numpy as np
 import os
 import matplotlib.pyplot as plt
 from mpl_toolkits.mplot3d.art3d import Poly3DCollection
-from import_stl import import_stl
-from STLBase import STLBase
+from scripts.import_stl import import_stl
+from scripts.STLBase import STLBase
 
 class STLRotater:
     '''
@@ -14,7 +14,7 @@ class STLRotater:
     It can also save the mesh to a new STL file.
     It can also display the mesh in 3D.
     ''' 
-    def __init__(self, filename: str, mesh: trimesh.Trimesh = None, **kwargs):
+    def __init__(self, filename: str = "placeholder", mesh: trimesh.Trimesh = None, **kwargs):
         self.inputfile = STLBase(filename, mesh, **kwargs)
         self.outputfile = STLBase(filename, mesh, **kwargs)
         self.rotation_matrix = np.eye(4)
@@ -33,6 +33,8 @@ class STLRotater:
         return self.outputfile.get()
     def get_copy(self):
         return self.outputfile.get_copy()
+    def transfer(self):
+        return self.outputfile.transfer()
     
     def save(self, filename: str = None):
         self.outputfile.save(filename)
@@ -96,16 +98,18 @@ class STLRotater:
             self.rotation_angles = trimesh.transformations.euler_from_matrix(R, axes='sxyz')
             
 
-    def apply_rotation(self, rotation_matrix: np.ndarray):
+    def apply_rotation(self, rotation_matrix: np.ndarray = None):
         '''
         Syncs the rotation matrix with the STL file.
         '''
-        self.rotation_matrix = rotation_matrix
+        if rotation_matrix is not None:
+            self.rotation_matrix = rotation_matrix
         self.outputfile.set(self.inputfile.get().copy())
         self.outputfile.get().apply_transform(self.rotation_matrix)
+
     def display(self, title: str = ""):
         title + f"({self.rotation_angles[0]:.2f}, {self.rotation_angles[1]:.2f}, {self.rotation_angles[2]:.2f})"
-        self.STLfile.display(title)
+        self.outputfile.display(title)
     
         
 
