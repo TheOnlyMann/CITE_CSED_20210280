@@ -67,6 +67,8 @@ def enhanceSTL_via_open3d(stl: STLBase, voxel_factor: float = 200.0, verbose: bo
 
     # Remesh
     voxel_size = mesh_o3d.get_max_bound()[0] / voxel_factor
+    if voxel_size < 0.01:
+        voxel_size = 0.01
     mesh_o3d = mesh_o3d.simplify_vertex_clustering(
         voxel_size=voxel_size,
         contraction=o3d.geometry.SimplificationContraction.Average
@@ -156,7 +158,7 @@ def evalSTL_base(stl:STLBase, area_threshold=1e-4, tolerance=1e-5,base_cost_fact
 
 
 
-def costcalc(normal: np.ndarray, z_axis: np.ndarray, tolerance: float = 1e-5, inner_angle_tolerance: tuple = (55.0, 70.0), outer_angle_tolerance: tuple = (35.0, 70.0)):
+def costcalc(normal: np.ndarray, z_axis: np.ndarray, tolerance: float = 1e-5, inner_angle_tolerance: tuple = (55.0, 70.0), outer_angle_tolerance: tuple = (35.0, 70.0),leak_rate = 0.2):
     """
     Calculate the angle between a normal vector and the Z-axis, and return a penalty based on the angle.
     Penalty is done in a ReLU manner however both for the upper extreme and lower extreme, both cases being close to vertical/horizontal being less responsive than being diagonal.
@@ -171,11 +173,11 @@ def costcalc(normal: np.ndarray, z_axis: np.ndarray, tolerance: float = 1e-5, in
 
     penalty = 0.0
     if deviation < tolerance_val[0]:
-        penalty = 0.0
+        penalty = leak_rate * (deviation - tolerance_val[0]) / tolerance_val[0] * -1.0
     elif deviation < tolerance_val[1]:
         penalty = (deviation - tolerance_val[0]) / (tolerance_val[1] - tolerance_val[0])
     else:
-        penalty = 1.0
+        penalty = 1.0 + (deviation - tolerance_val[1]) / (90.0 - tolerance_val[1]) * leak_rate
     return penalty
     
     
@@ -296,11 +298,29 @@ def evalSTL_island(mesh: trimesh.Trimesh, layer_height=0.2, distance_threshold=0
         print(f"📏 Detected islands in {len(island_info)} layers (Polyline-based).")
     return island_info
 
+def evalSTL_height(stl: STLBase, layer_height=0.2, verbose: bool = False):
+    """
+    Evaluate the height of the STLBase object.
 
+    Parameters:
+        stl (STLBase): The STLBase object to evaluate.
+        layer_height (float): Height of each layer.
+
+    Returns:
+        float: Height of the STLBase object.
+    """
+    stl._check()
+    mesh = stl.get()
+    z_min, z_max = mesh.bounds[0][2], mesh.bounds[1][2]
+    height = z_max - z_min
+    n_layers = int(height / layer_height) + 1
+
+    if verbose:
+        print(f"✅ Height: {height:.4f}, Layers: {n_layers}")
+    return height, n_layers
 
 def evalSTL(stl: STLBase, area_threshold=1e-4, tolerance=1e-5, layer_height=0.2, verbose: bool = False):
-    """
-    Evaluate the STLBase object for various properties.
+    """                                                                                                                                                                     Evaluate the STLBase object for various properties.
 
     Parameters:
         stl (STLBase): The STLBase object to evaluate.
@@ -313,7 +333,7 @@ def evalSTL(stl: STLBase, area_threshold=1e-4, tolerance=1e-5, layer_height=0.2,
         None
     """
     evalSTL_initface(stl, override=True, verbose=verbose)
-    base_area, base_faces = evalSTL_base(stl, area_threshold=area_threshold, tolerance=tolerance, verbose=verbose)
+    base_area, base_faces = evalSTL_base(stl, area_threshold=area_threshold, tolerance=tolerance,base_cost_factor=0, verbose=verbose)
     wall_area, penalty_value = evalSTL_wall(stl, anglecheck_function=costcalc, verbose=verbose)
     center_of_mass = evalSTL_center_of_mass(stl, verbose=verbose)
     island_info = evalSTL_island(stl.get(), layer_height=layer_height, verbose=verbose)
