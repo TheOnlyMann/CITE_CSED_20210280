@@ -2,6 +2,7 @@ from scripts.STLBase import STLBase
 from scripts.STLRotater import STLRotater
 from scripts.STLUtils import fixSTL, enhanceSTL_via_open3d, evalSTL_initface, evalSTL_base, evalSTL_wall, costcalc, evalSTL_center_of_mass, evalSTL_island, evalSTL, displayeval
 from scripts.PointCloudUtils import extractPointCloud, display_point_cloud
+from scripts.STLDivider import STLDivider
 import math
 import numpy as np
 import open3d as o3d
@@ -14,6 +15,14 @@ rotater = STLRotater("rotated.stl", mesh=basemesh.get_copy())
 rotater.set_rotation(rotation_angles=[math.radians(90), math.radians(90), 0], limit_z_rotation=False)
 rotater.apply_rotation()
 rotater.display("Rotated mesh")
+
+divider = STLDivider("divided.stl", mesh=rotater.get_copy())
+print(f"Z limit: {divider.get_z_limit()}")
+divider.set_z_height(z_height=-30.0)
+divider.divide()
+divider.display()
+divider.display("upper")
+divider.display("lower")
 
 stl = rotater.transfer()
 
