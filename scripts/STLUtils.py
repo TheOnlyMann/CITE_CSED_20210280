@@ -260,7 +260,7 @@ def evalSTL_island(mesh: trimesh.Trimesh, layer_height=0.2, distance_threshold=0
             continue
 
         try:
-            paths = section.to_planar()[0]
+            paths = section
         except Exception:
             continue
 
