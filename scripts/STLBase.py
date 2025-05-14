@@ -40,12 +40,13 @@ class STLBase:
         #check if it does not have .stl extension and if not add it
         if not filename.endswith(".stl"):
             filename += ".stl"
+        file_path = filename
         #check if the file exists in the current directory, if not check in the base data/stl directory
         if not os.path.exists(file_path):
             file_path = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "data/stl", filename)
 
-        self.mesh.export(filename)
-        print(f"✅ STL saved to: {filename}")
+        self.mesh.export(file_path)
+        print(f"✅ STL saved to: {file_path}")
     
     def display(self, title: str = ""):
         '''
