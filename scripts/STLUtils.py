@@ -3,6 +3,7 @@ import numpy as np
 import os
 import matplotlib.pyplot as plt
 from mpl_toolkits.mplot3d.art3d import Poly3DCollection
+from trimesh.transformations import transform_points
 from scripts.import_stl import import_stl
 from scripts.STLBase import STLBase
 import open3d as o3d
@@ -260,7 +261,7 @@ def evalSTL_island(mesh: trimesh.Trimesh, layer_height=0.2, distance_threshold=0
             continue
 
         try:
-            paths = section.to_planar()[0]
+            paths, to_3D = section.to_2D()
         except Exception:
             continue
 
@@ -289,7 +290,8 @@ def evalSTL_island(mesh: trimesh.Trimesh, layer_height=0.2, distance_threshold=0
         if unsupported:
             island_info.append({
                 "z": z,
-                "islands": unsupported
+                "islands": unsupported,
+                "to_3D": to_3D
             })
 
         prev_points = np.vstack(polys) if polys else prev_points
@@ -374,10 +376,15 @@ def displayeval(stl: STLBase, eval_result, title: str = ""):
     for layer in island_info:
         z = layer["z"]
         islands = layer["islands"]
+        to_3d = layer["to_3D"]
         for poly_pts in islands:
             if len(poly_pts) > 0:
-                isl3d = np.column_stack((poly_pts, np.full(len(poly_pts), z)))
-                ax.plot(isl3d[:, 0], isl3d[:, 1], isl3d[:, 2], color='purple', linewidth=2)
+                # (N, 2) → (N, 3)로 확장 (Z=0)
+                poly_pts_h = np.column_stack((poly_pts, np.zeros(len(poly_pts))))
+                # to_3D를 통해 원래 3D 위치로 변환
+                poly_pts3 = transform_points(poly_pts_h, to_3d)
+                # 시각화
+                ax.plot(poly_pts3[:, 0], poly_pts3[:, 1], poly_pts3[:, 2], color='purple', linewidth=5, alpha=1)
 
     ax.set_box_aspect([1, 1, 1])
     ax.set_xlabel('X')
