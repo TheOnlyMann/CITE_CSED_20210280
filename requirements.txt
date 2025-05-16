@@ -13,3 +13,4 @@ h5py>=3.6.0
 rtree>=0.9.7
 mapbox-earcut>=3.0.0
 manifold3d>=1.0.0
+pygcode

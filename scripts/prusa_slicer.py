@@ -22,7 +22,9 @@ def sliceSTL(target, profile=DEFAULT_PROFILE, userParameters = DEFAULT_PARAMS, u
     """
     if not os.path.exists(target):
         target = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "data/stl", target)
-    filename = os.path.join(os.path.dirname(target), os.path.basename(target).replace(".stl", ".gcode"))
+        filename = os.path.join(os.path.dirname(target).replace("\stl","\gcode"), os.path.basename(target).replace(".stl", ".gcode"))
+    else:
+        filename = os.path.join(os.path.dirname(target), os.path.basename(target).replace(".stl", ".gcode"))
     if outputPath is not None:
         filename = os.path.join(outputPath, os.path.basename(target).replace(".stl", ".gcode"))
     prusa_slicer_path = fr'"{userPath}\prusa-slicer-console.exe"'

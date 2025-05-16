@@ -22,6 +22,7 @@ class STLBase:
         return self.mesh
 
     def set(self, mesh: trimesh.Trimesh):
+        mesh.rezero()  
         self.mesh = mesh
     def get(self):
         self._check()
