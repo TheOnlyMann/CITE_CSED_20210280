@@ -13,4 +13,4 @@ basemesh.load("Calibration cube v3.stl")
 basemesh.display("Original mesh")
 basemesh.save("calicube3_base.stl")
 
-sliceSTL("data/stl/calicube3_base.stl")
+sliceSTL("data/stl/calicube3_base.stl", outputPath = "data/gcode")
