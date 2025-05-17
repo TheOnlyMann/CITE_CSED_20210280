@@ -20,6 +20,8 @@ def warpmethod3(x,y):
 basemesh = STLBase("test.stl")
 basemesh.load("Calibration cube v3.stl")
 basemesh.display("Original mesh")
+basemesh.save("warped_before.stl")
+sliceSTL("warped_before.stl", outputPath="data/gcode")
 # check warper
 warper = STLWarper("warped.stl", mesh=basemesh.get_copy())
 warper.set_warp_method(warpmethod_1)

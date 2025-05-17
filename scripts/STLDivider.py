@@ -119,9 +119,9 @@ class STLDivider:
             print("❌ Slicing returned empty mesh.")
             return
 
-        # Flip the lower mesh 180° around X-axis
+        # Flip the upper mesh 180° around X-axis
         R = trimesh.transformations.rotation_matrix(np.pi, [1, 0, 0])
-        lower.apply_transform(R)
+        upper.apply_transform(R)
 
         self.outputfile_upper.set(upper)
         self.outputfile_lower.set(lower)

@@ -75,9 +75,7 @@ class STLRotater:
         elif bottom_selection is not None:
             if bottom_selection >= len(mesh.faces):
                 raise IndexError("bottom_selection index out of range.")
-            face = mesh.faces[bottom_selection]
-            verts = mesh.vertices[face]
-            normal = trimesh.geometry.normal_triangle(*verts)
+            normal = mesh.face_normals[bottom_selection]
             z_axis = np.array([0, 0, 1])
             axis = np.cross(normal, z_axis)
             angle = np.arccos(np.clip(np.dot(normal, z_axis), -1.0, 1.0))

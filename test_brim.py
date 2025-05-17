@@ -13,6 +13,8 @@ import open3d as o3d
 basemesh = STLBase("test.stl")
 basemesh.load("Calibration cube v3.stl")
 basemesh.display("Original mesh")
+basemesh.save("brim_before.stl")
+sliceSTL("brim_before.stl", outputPath="data/gcode")
 # check extender
 extender = STLExtender("extender.stl", mesh=basemesh.get_copy())
 extender.set_disc_state(disc_radius=5, disc_height=0.2, disc_threshold=90.0, disc_area_threshold=1e-4)

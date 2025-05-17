@@ -11,9 +11,11 @@ import open3d as o3d
 
 # Load the original mesh
 basemesh = STLBase("test.stl")
-basemesh.load("Calibration cube v3.stl")
+basemesh.load("test_shape.stl")
 basemesh.display("Original mesh")
 basemesh.save("base.stl")
+
+displayeval(basemesh, evalSTL(basemesh))
 
 sliceSTL("base.stl", outputPath="data/gcode")
 viewGCODE("data/gcode/base.gcode")

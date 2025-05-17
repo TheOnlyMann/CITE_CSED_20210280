@@ -12,13 +12,17 @@ import open3d as o3d
 
 # Load the original mesh
 basemesh = STLBase("test.stl")
-basemesh.load("Calibration cube v3.stl")
+basemesh.load("test_shape_2.stl")
 basemesh.display("Original mesh")
+displayeval(basemesh, evalSTL(basemesh))
+basemesh.save("rotated_before.stl")
+sliceSTL("rotated_before.stl", outputPath="data/gcode")
 # check rotater
 rotator = STLRotater("rotated.stl", mesh=basemesh.get_copy())
-rotator.set_rotation(rotation_angles=[math.radians(90), math.radians(90), 0], limit_z_rotation=True)
+rotator.set_rotation(rotation_angles=[math.radians(90), math.radians(0), 0], limit_z_rotation=True)
 rotator.apply_rotation()
 rotator.display("Rotated mesh")
+displayeval(rotator.outputfile, evalSTL(rotator.outputfile))
 
 rotator.save("rotated.stl")
 sliceSTL("rotated.stl", outputPath="data/gcode")
