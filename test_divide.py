@@ -14,13 +14,17 @@ import open3d as o3d
 basemesh = STLBase("test.stl")
 basemesh.load("Calibration cube v3.stl")
 basemesh.display("Original mesh")
-# check rotater
-rotator = STLRotater("rotated.stl", mesh=basemesh.get_copy())
-rotator.set_rotation(rotation_angles=[math.radians(90), math.radians(90), 0], limit_z_rotation=True)
-rotator.apply_rotation()
-rotator.display("Rotated mesh")
-
-rotator.save("rotated.stl")
-sliceSTL("rotated.stl", outputPath="data/gcode")
-viewGCODE("data/gcode/rotated.gcode")
+# check divider
+divider = STLDivider("divided.stl", mesh=basemesh.get_copy())
+divider.set_z_height(z_height=10.0)
+divider.divide()
+divider.display()
+divider.display("upper", "Upper part")
+divider.display("lower", "Lower part")
+divider.save("divided_upper.stl","upper")
+divider.save("divided_lower.stl","lower")
+sliceSTL("divided_upper.stl", outputPath="data/gcode")
+sliceSTL("divided_lower.stl", outputPath="data/gcode")
+viewGCODE("data/gcode/divided_upper.gcode")
+viewGCODE("data/gcode/divided_lower.gcode")
 

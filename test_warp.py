@@ -10,6 +10,12 @@ import math
 import numpy as np
 import open3d as o3d
 
+
+def warpmethod2(x,y):
+    return np.sqrt(x**2 + y**2) * 0.2
+def warpmethod3(x,y):
+    return (np.abs(x)+np.abs(y)) * 0.2
+
 # Load the original mesh
 basemesh = STLBase("test.stl")
 basemesh.load("Calibration cube v3.stl")
@@ -17,10 +23,11 @@ basemesh.display("Original mesh")
 # check warper
 warper = STLWarper("warped.stl", mesh=basemesh.get_copy())
 warper.set_warp_method(warpmethod_1)
+
+
 warper.preprocess()
 warper.warp()
 warper.display("Warped mesh")
-gcode = warper.slice_and_reverse()
+warper.slice_and_reverse()
 
-viewGCODE(gcode)
 viewGCODE("data/gcode/warped.gcode")
