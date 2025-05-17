@@ -23,3 +23,4 @@ warper.display("Warped mesh")
 gcode = warper.slice_and_reverse()
 
 viewGCODE(gcode)
+viewGCODE("data/gcode/warped.gcode")
