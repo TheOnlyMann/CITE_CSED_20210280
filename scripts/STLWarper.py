@@ -90,14 +90,15 @@ class STLWarper:
         mesh.fix_normals() 
         self.outputfile.set(mesh)
 
-    def slice_and_reverse(self, **kwargs):
+    def slice_and_reverse(self,interp_size = 0.5, **kwargs):
         if self.outputfile is None:
             raise RuntimeError("Call warp() before slice_and_return().")
         if self.outputfile.get() is None:
             raise RuntimeError("Output file is empty.")
         self.outputfile.save("temp/warped")
         sliceSTL("data/stl/temp/warped.stl", outputPath="data/gcode/temp")
-        self.outputgcode = read_and_warp_gcode("data/gcode/temp/warped.gcode", self.warp_method)
+        self.outputgcode = read_and_warp_gcode("data/gcode/temp/warped.gcode", self.warp_method, interp_size)
+        
         
 
 
@@ -168,6 +169,8 @@ def read_and_warp_gcode(filename: str, warp_method: callable, interpolate_size =
                         new_x = prev_x + t * (x - prev_x)
                         new_y = prev_y + t * (y - prev_y)
                         new_new_z = prev_z + t * (new_z - prev_z) - 1 * warp_method(new_x-110, new_y-110)
+                        if new_new_z < z_min:
+                            new_new_z = z_min
                         new_e = e / (num_interpolations + 1)
                         new_f = f
                         new_line = f"G1 X{new_x:.3f} Y{new_y:.3f} Z{new_new_z:.3f} "
