@@ -18,7 +18,7 @@ def warpmethod3(x,y):
 
 # Load the original mesh
 basemesh = STLBase("test.stl")
-basemesh.load("Calibration cube v3.stl")
+basemesh.load("best_mesh.stl")
 basemesh.display("Original mesh")
 basemesh.save("warped_before.stl")
 sliceSTL("warped_before.stl", outputPath="data/gcode")
